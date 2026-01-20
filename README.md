@@ -35,7 +35,8 @@ A production-ready TypeScript/Node.js service that provides daily temperature da
 ### Using Docker (Recommended)
 
 ```bash
-docker run -p 3000:3000 belgrade-weather-service
+docker build -t belgrade-weather-service .
+docker run --rm -p 3000:3000 belgrade-weather-service
 ```
 
 Or with Docker Compose:
