@@ -377,7 +377,8 @@ export function getWebUI(): string {
         function fillBelgradCoordinates() {
             document.getElementById('latInput').value = '44.8176';
             document.getElementById('lonInput').value = '20.4599';
-            document.getElementById('latInput').focus();
+            switchTab('coords');
+            getTemperatureByCoords();
         }
 
         function loadBelgradDefault() {
