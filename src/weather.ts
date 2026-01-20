@@ -166,29 +166,53 @@ export async function getTemperatures(
     const data = await response.json() as YrNoWeatherData;
 
     // Filter temperatures around 14:00 (2:00 PM)
-    const temperaturesToday: TemperatureData[] = [];
+    // yr.no provides hourly data for first 2 days, then 6-hourly for remaining days
+    // We collect the closest time to 14:00 for each day
+    const temperatureByDate: { [key: string]: TemperatureData } = {};
 
     if (data.properties && data.properties.timeseries) {
       for (const entry of data.properties.timeseries) {
         const time = new Date(entry.time);
         const hour = time.getUTCHours();
+        const minute = time.getUTCMinutes();
         const dateStr = time.toISOString().split('T')[0];
-        const timeStr = `${String(hour).padStart(2, '0')}:${String(time.getUTCMinutes()).padStart(2, '0')}`;
+        const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
-        // Include 14:00 (UTC) exactly
-        if (hour === 14) {
-          const symbolCode = entry.data.next_1_hours?.summary?.symbol_code || 'unknown';
-          
-          temperaturesToday.push({
-            date: dateStr,
-            time: timeStr,
-            temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
-            unit: 'Celsius',
-            weatherDescription: getWeatherDescription(symbolCode),
-          });
+        // Look for times close to 14:00 (within 6 hours for coarse data: 12:00 or 18:00)
+        // Keep the closest match to 14:00 for each day
+        const hourOffset = Math.abs(hour - 14);
+        
+        // Accept 12:00 (2h before), 14:00 (exact), 15:00 (1h after), 18:00 (4h after) for 6-hourly data
+        if (hourOffset <= 4) {
+          if (!temperatureByDate[dateStr]) {
+            temperatureByDate[dateStr] = {
+              date: dateStr,
+              time: timeStr,
+              temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
+              unit: 'Celsius',
+              weatherDescription: getWeatherDescription(entry.data.next_1_hours?.summary?.symbol_code || 'unknown'),
+            };
+          } else {
+            // Replace if this time is closer to 14:00
+            const prevHourOffset = Math.abs(parseInt(temperatureByDate[dateStr].time.split(':')[0]) - 14);
+            if (hourOffset < prevHourOffset) {
+              temperatureByDate[dateStr] = {
+                date: dateStr,
+                time: timeStr,
+                temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
+                unit: 'Celsius',
+                weatherDescription: getWeatherDescription(entry.data.next_1_hours?.summary?.symbol_code || 'unknown'),
+              };
+            }
+          }
         }
       }
     }
+
+    // Convert to array and sort by date
+    const temperaturesToday: TemperatureData[] = Object.values(temperatureByDate).sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
     const response_obj: TemperatureResponse = {
       location: coordinates,
