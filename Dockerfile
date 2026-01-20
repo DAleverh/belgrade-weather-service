@@ -4,11 +4,16 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --only=production
+# Install all dependencies (including dev deps needed for build)
+RUN npm ci
 
 COPY . .
 
+# Build TypeScript
 RUN npm run build
+
+# Remove dev dependencies to reduce image size
+RUN npm ci --only=production
 
 EXPOSE 3000
 
