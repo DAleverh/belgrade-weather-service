@@ -347,7 +347,7 @@ export function getWebUI(): string {
         </div>
 
         <div class="footer">
-            <p>Data source: Open-Meteo API | Temperature measured around 14:00 local time</p>
+            <p>Data source: yr.no (Norwegian Meteorological Institute) | Temperature measured around 14:00 local time</p>
             <p><a href="/api/docs" style="color: #667eea; text-decoration: none;">API Documentation</a></p>
         </div>
     </div>
@@ -506,8 +506,10 @@ export function getWebUI(): string {
         }
 
         // Load default (Belgrade) on page load
-        window.addEventListener('load', () => {
-            setTimeout(getTemperatureByLocation, 500);
+        window.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('locationInput');
+        if (input && !input.value.trim()) input.value = 'Belgrade';
+        getTemperatureByLocation();
         });
     </script>
 </body>

@@ -61,6 +61,10 @@ npm start
 
 ## 📚 API Documentation
 
+### Data Source
+
+This service uses the **yr.no** (Norwegian Meteorological Institute) weather API for reliable, accurate weather data.
+
 ### Base URL
 ```
 http://localhost:3000/api
@@ -364,7 +368,7 @@ docker run -p 3000:3000 -e PORT=8080 -e NODE_ENV=production belgrade-weather-ser
 belgrade-weather-service/
 ├── src/
 │   ├── index.ts          # Express server, routes, middleware
-│   ├── weather.ts        # Weather data fetching, caching, location search
+│   ├── weather.ts        # Weather data fetching (yr.no), caching, location search
 │   └── ui.ts             # Web interface HTML/CSS/JS
 ├── tests/
 │   ├── weather.test.ts   # Weather service tests
@@ -384,18 +388,19 @@ belgrade-weather-service/
 2. **Route Handler** → Check Rate Limit
 3. **Location Resolution** → Geocoding API (if needed)
 4. **Cache Check** → NodeCache
-5. **Weather Fetch** → Open-Meteo API (if not cached)
+5. **Weather Fetch** → yr.no API (if not cached)
 6. **Response** → JSON + Cache
 
 ### External APIs
 
-- **Open-Meteo Weather API**: `https://api.open-meteo.com`
+- **yr.no Weather API**: `https://api.weatherapi.met.no`
   - Weather data retrieval
-  - No authentication required
+  - No authentication required (with User-Agent header)
   - Rate limiting: Fair use policy
+  - Provides accurate Norwegian meteorological data
 
 - **Open-Meteo Geocoding API**: `https://geocoding-api.open-meteo.com`
-  - Location search
+  - Location search only (yr.no doesn't provide geocoding)
   - Coordinates to names
   - No authentication required
 
@@ -609,4 +614,4 @@ For issues, questions, or suggestions:
 
 **Version**: 2.0.0  
 **Last Updated**: January 2026  
-**Data Source**: Open-Meteo API
+**Data Source**: yr.no (Norwegian Meteorological Institute)

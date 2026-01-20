@@ -174,12 +174,15 @@ export async function getLocationCoordinates(locationName: string): Promise<Loca
 
 ### Data Source
 
-Uses Open-Meteo Geocoding API:
-- **Endpoint**: `https://geocoding-api.open-meteo.com/v1/search`
-- **Authentication**: None (free service)
+Uses yr.no (Norwegian Meteorological Institute) weather API:
+- **Endpoint**: `https://api.weatherapi.met.no/weatherapi/1.0/complete`
+- **Authentication**: None (free service, requires User-Agent header)
 - **Rate Limit**: Fair use policy
 - **Response Format**: JSON
-- **Accuracy**: City-level
+- **Accuracy**: High precision weather data
+- **Coverage**: Worldwide
+
+**Note**: Location search uses Open-Meteo Geocoding API since yr.no doesn't provide a public geocoding service.
 
 ---
 

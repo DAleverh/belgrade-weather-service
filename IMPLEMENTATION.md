@@ -232,6 +232,8 @@ belgrade-weather-service/
 | Language | TypeScript 5.3 | Type-safe development |
 | Framework | Express.js 4.18 | Web server |
 | API Client | node-fetch 2.7 | HTTP requests |
+| Weather API | yr.no | Norwegian meteorological data |
+| Geocoding | Open-Meteo | Location search (yr.no has no public geocoding) |
 | Caching | node-cache 5.1 | In-memory caching |
 | Rate Limiting | express-rate-limit 7.1 | API protection |
 | Testing | Jest 29.7 | Test framework |

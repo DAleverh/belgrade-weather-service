@@ -23,6 +23,7 @@ export interface TemperatureResponse {
   temperatures: TemperatureData[];
   updatedAt: string;
   cached?: boolean;
+  dataSource?: string;
 }
 
 interface GeocodingResult {
@@ -32,8 +33,30 @@ interface GeocodingResult {
   country: string;
 }
 
+interface YrNoWeatherData {
+  properties: {
+    timeseries: Array<{
+      time: string;
+      data: {
+        instant: {
+          details: {
+            air_temperature: number;
+            weather_icon?: string;
+          };
+        };
+        next_1_hours?: {
+          summary: {
+            symbol_code: string;
+          };
+        };
+      };
+    }>;
+  };
+}
+
 /**
  * Search for locations by name using Open-Meteo geocoding API
+ * (yr.no doesn't provide a public geocoding API, so we use Open-Meteo for search)
  */
 export async function searchLocations(query: string): Promise<GeocodingResult[]> {
   try {
@@ -85,7 +108,7 @@ export async function getLocationCoordinates(locationName: string): Promise<Loca
 }
 
 /**
- * Fetches temperature data for a location around 14:00
+ * Fetches temperature data for a location around 14:00 using yr.no API
  */
 export async function getTemperatures(
   location?: LocationCoordinates | string,
@@ -119,41 +142,47 @@ export async function getTemperatures(
     }
 
     console.log(
-      `Fetching weather data for ${coordinates.name || `(${coordinates.latitude}, ${coordinates.longitude})`}...`
+      `Fetching weather data from yr.no for ${coordinates.name || `(${coordinates.latitude}, ${coordinates.longitude})`}...`
     );
 
-    // Open-Meteo API endpoint
-    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&hourly=temperature_2m,weather_code&daily=weather_code&timezone=auto&forecast_days=16`;
+    // yr.no Compact API endpoint
+    // Using altitude=0 as default, yr.no accepts any value
+    const yrnoUrl = `https://api.weatherapi.met.no/weatherapi/1.0/complete?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&altitude=0`;
 
-    const response = await fetch(openMeteoUrl);
+    const response = await fetch(yrnoUrl, {
+      headers: {
+        'User-Agent': 'belgrade-weather-service/1.0 (https://github.com/yourusername/belgrade-weather-service)',
+      },
+    });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw new Error(`yr.no API request failed: ${response.statusText}`);
     }
 
-    const data = await response.json() as any;
-
-    // Extract hourly data
-    const hourlyTimes: string[] = data.hourly.time;
-    const temperatures: number[] = data.hourly.temperature_2m;
-    const weatherCodes: number[] = data.hourly.weather_code;
+    const data = await response.json() as YrNoWeatherData;
 
     // Filter temperatures around 14:00 (2:00 PM)
     const temperaturesToday: TemperatureData[] = [];
 
-    for (let i = 0; i < hourlyTimes.length; i++) {
-      const time = hourlyTimes[i];
-      const hour = parseInt(time.split('T')[1].split(':')[0]);
+    if (data.properties && data.properties.timeseries) {
+      for (const entry of data.properties.timeseries) {
+        const time = new Date(entry.time);
+        const hour = time.getUTCHours();
+        const dateStr = time.toISOString().split('T')[0];
+        const timeStr = `${String(hour).padStart(2, '0')}:${String(time.getUTCMinutes()).padStart(2, '0')}`;
 
-      // Include 14:00 exactly
-      if (hour === 14) {
-        temperaturesToday.push({
-          date: time.split('T')[0],
-          time: time.split('T')[1].substring(0, 5),
-          temperature: Math.round(temperatures[i] * 10) / 10,
-          unit: 'Celsius',
-          weatherDescription: getWeatherDescription(weatherCodes[i]),
-        });
+        // Include 14:00 (UTC) exactly
+        if (hour === 14) {
+          const symbolCode = entry.data.next_1_hours?.summary?.symbol_code || 'unknown';
+          
+          temperaturesToday.push({
+            date: dateStr,
+            time: timeStr,
+            temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
+            unit: 'Celsius',
+            weatherDescription: getWeatherDescription(symbolCode),
+          });
+        }
       }
     }
 
@@ -162,6 +191,7 @@ export async function getTemperatures(
       temperatures: temperaturesToday,
       updatedAt: new Date().toISOString(),
       cached: false,
+      dataSource: 'yr.no',
     };
 
     // Cache the result
@@ -175,35 +205,61 @@ export async function getTemperatures(
 }
 
 /**
- * Maps WMO weather codes to descriptions
+ * Maps yr.no weather symbol codes to descriptions
+ * Reference: https://api.weatherapi.met.no/documentation
  */
-function getWeatherDescription(code: number): string {
-  const weatherCodes: { [key: number]: string } = {
-    0: 'Clear sky',
-    1: 'Mainly clear',
-    2: 'Partly cloudy',
-    3: 'Overcast',
-    45: 'Foggy',
-    48: 'Depositing rime fog',
-    51: 'Light drizzle',
-    53: 'Moderate drizzle',
-    55: 'Dense drizzle',
-    61: 'Slight rain',
-    63: 'Moderate rain',
-    65: 'Heavy rain',
-    71: 'Slight snow',
-    73: 'Moderate snow',
-    75: 'Heavy snow',
-    77: 'Snow grains',
-    80: 'Slight rain showers',
-    81: 'Moderate rain showers',
-    82: 'Violent rain showers',
-    85: 'Slight snow showers',
-    86: 'Heavy snow showers',
-    95: 'Thunderstorm',
-    96: 'Thunderstorm with slight hail',
-    99: 'Thunderstorm with heavy hail',
+function getWeatherDescription(code: string): string {
+  const weatherCodes: { [key: string]: string } = {
+    'clearsky_day': 'Clear sky',
+    'clearsky_night': 'Clear sky',
+    'clearsky_polartwilight': 'Clear sky',
+    'fair_day': 'Fair',
+    'fair_night': 'Fair',
+    'fair_polartwilight': 'Fair',
+    'partlycloudy_day': 'Partly cloudy',
+    'partlycloudy_night': 'Partly cloudy',
+    'partlycloudy_polartwilight': 'Partly cloudy',
+    'cloudy': 'Overcast',
+    'rainshowers_day': 'Rain showers',
+    'rainshowers_night': 'Rain showers',
+    'rainshowers_polartwilight': 'Rain showers',
+    'rain': 'Rain',
+    'heavyrain': 'Heavy rain',
+    'heavyrainandthunder': 'Heavy rain and thunder',
+    'sleetandthunder': 'Sleet and thunder',
+    'snowandthunder': 'Snow and thunder',
+    'rain_and_snow': 'Rain and snow',
+    'snow': 'Snow',
+    'snowshowers_day': 'Snow showers',
+    'snowshowers_night': 'Snow showers',
+    'snowshowers_polartwilight': 'Snow showers',
+    'rainandthunder': 'Rain and thunder',
+    'sleet': 'Sleet',
+    'lightrainandthunder': 'Light rain and thunder',
+    'heavysleetandthunder': 'Heavy sleet and thunder',
+    'lightsnowandthunder': 'Light snow and thunder',
+    'heavysnow': 'Heavy snow',
+    'fog': 'Fog',
+    'lightrain': 'Light rain',
+    'heavyrainshowers_day': 'Heavy rain showers',
+    'heavyrainshowers_night': 'Heavy rain showers',
+    'heavyrainshowers_polartwilight': 'Heavy rain showers',
+    'lightsleet': 'Light sleet',
+    'heavysleet': 'Heavy sleet',
+    'lightsnow': 'Light snow',
+    'heavysnowshowers_day': 'Heavy snow showers',
+    'heavysnowshowers_night': 'Heavy snow showers',
+    'heavysnowshowers_polartwilight': 'Heavy snow showers',
+    'lightrainshowers_day': 'Light rain showers',
+    'lightrainshowers_night': 'Light rain showers',
+    'lightrainshowers_polartwilight': 'Light rain showers',
+    'lightsleetshowers_day': 'Light sleet showers',
+    'lightsleetshowers_night': 'Light sleet showers',
+    'lightsleetshowers_polartwilight': 'Light sleet showers',
+    'lightsnowshowers_day': 'Light snow showers',
+    'lightsnowshowers_night': 'Light snow showers',
+    'lightsnowshowers_polartwilight': 'Light snow showers',
   };
 
-  return weatherCodes[code] || 'Unknown';
+  return weatherCodes[code] || code || 'Unknown';
 }
