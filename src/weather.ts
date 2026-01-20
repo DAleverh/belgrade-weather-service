@@ -1,6 +1,16 @@
 import fetch from 'node-fetch';
+import NodeCache from 'node-cache';
 
-interface TemperatureData {
+// Cache for 1 hour (3600 seconds)
+const cache = new NodeCache({ stdTTL: 3600 });
+
+export interface LocationCoordinates {
+  latitude: number;
+  longitude: number;
+  name?: string;
+}
+
+export interface TemperatureData {
   date: string;
   time: string;
   temperature: number;
@@ -8,22 +18,112 @@ interface TemperatureData {
   weatherDescription?: string;
 }
 
+export interface TemperatureResponse {
+  location: LocationCoordinates;
+  temperatures: TemperatureData[];
+  updatedAt: string;
+  cached?: boolean;
+}
+
+interface GeocodingResult {
+  latitude: number;
+  longitude: number;
+  name: string;
+  country: string;
+}
+
 /**
- * Fetches temperature data for Belgrade around 14:00 using yr.no API
+ * Search for locations by name using Open-Meteo geocoding API
  */
-export async function getTemperatures(): Promise<TemperatureData[]> {
+export async function searchLocations(query: string): Promise<GeocodingResult[]> {
   try {
-    // Belgrade coordinates
-    const latitude = 44.8176;
-    const longitude = 20.4599;
-
-    // yr.no API endpoint - Classic Weather API
-    const url = `https://api.weather.gov/points/${latitude},${longitude}/forecast/hourly`;
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en`;
     
-    // Alternative using Open-Meteo which is more accessible
-    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,weather_code&daily=weather_code&timezone=auto&forecast_days=16`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Geocoding API failed: ${response.statusText}`);
+    }
 
-    console.log('Fetching weather data from Open-Meteo API...');
+    const data = await response.json() as any;
+    
+    if (!data.results) {
+      return [];
+    }
+
+    return data.results.map((result: any) => ({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      name: result.name,
+      country: result.country,
+    }));
+  } catch (error) {
+    console.error('Error searching locations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get coordinates for a location name
+ */
+export async function getLocationCoordinates(locationName: string): Promise<LocationCoordinates> {
+  try {
+    const results = await searchLocations(locationName);
+    if (results.length === 0) {
+      throw new Error(`Location "${locationName}" not found`);
+    }
+
+    const firstResult = results[0];
+    return {
+      latitude: firstResult.latitude,
+      longitude: firstResult.longitude,
+      name: `${firstResult.name}, ${firstResult.country}`,
+    };
+  } catch (error) {
+    console.error('Error getting location coordinates:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches temperature data for a location around 14:00
+ */
+export async function getTemperatures(
+  location?: LocationCoordinates | string,
+  forceRefresh: boolean = false
+): Promise<TemperatureResponse> {
+  try {
+    // Default to Belgrade if no location provided
+    let coordinates: LocationCoordinates = {
+      latitude: 44.8176,
+      longitude: 20.4599,
+      name: 'Belgrade',
+    };
+
+    if (location) {
+      if (typeof location === 'string') {
+        coordinates = await getLocationCoordinates(location);
+      } else {
+        coordinates = location;
+      }
+    }
+
+    // Create cache key
+    const cacheKey = `temp_${coordinates.latitude}_${coordinates.longitude}`;
+
+    // Check cache if not forcing refresh
+    if (!forceRefresh) {
+      const cachedData = cache.get<TemperatureResponse>(cacheKey);
+      if (cachedData) {
+        return { ...cachedData, cached: true };
+      }
+    }
+
+    console.log(
+      `Fetching weather data for ${coordinates.name || `(${coordinates.latitude}, ${coordinates.longitude})`}...`
+    );
+
+    // Open-Meteo API endpoint
+    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&hourly=temperature_2m,weather_code&daily=weather_code&timezone=auto&forecast_days=16`;
 
     const response = await fetch(openMeteoUrl);
 
@@ -36,6 +136,7 @@ export async function getTemperatures(): Promise<TemperatureData[]> {
     // Extract hourly data
     const hourlyTimes: string[] = data.hourly.time;
     const temperatures: number[] = data.hourly.temperature_2m;
+    const weatherCodes: number[] = data.hourly.weather_code;
 
     // Filter temperatures around 14:00 (2:00 PM)
     const temperaturesToday: TemperatureData[] = [];
@@ -44,39 +145,29 @@ export async function getTemperatures(): Promise<TemperatureData[]> {
       const time = hourlyTimes[i];
       const hour = parseInt(time.split('T')[1].split(':')[0]);
 
-      // Filter for 14:00 (2:00 PM) - allowing 13:00-15:00 range
-      if (hour === 14 || (hour === 13 && temperatures[i + 1] === undefined) || (hour === 15 && temperatures[i - 1] === undefined)) {
+      // Include 14:00 exactly
+      if (hour === 14) {
         temperaturesToday.push({
           date: time.split('T')[0],
           time: time.split('T')[1].substring(0, 5),
-          temperature: Math.round(temperatures[i] * 10) / 10, // Round to 1 decimal
+          temperature: Math.round(temperatures[i] * 10) / 10,
           unit: 'Celsius',
-          weatherDescription: getWeatherDescription(data.hourly.weather_code[i]),
+          weatherDescription: getWeatherDescription(weatherCodes[i]),
         });
       }
     }
 
-    // Alternative: If we can't find exact 14:00, find closest to 14:00
-    if (temperaturesToday.length === 0) {
-      const closestToNoon: TemperatureData[] = [];
-      for (let i = 0; i < hourlyTimes.length; i++) {
-        const time = hourlyTimes[i];
-        const hour = parseInt(time.split('T')[1].split(':')[0]);
+    const response_obj: TemperatureResponse = {
+      location: coordinates,
+      temperatures: temperaturesToday,
+      updatedAt: new Date().toISOString(),
+      cached: false,
+    };
 
-        if (hour === 14) {
-          closestToNoon.push({
-            date: time.split('T')[0],
-            time: time.split('T')[1].substring(0, 5),
-            temperature: Math.round(temperatures[i] * 10) / 10,
-            unit: 'Celsius',
-            weatherDescription: getWeatherDescription(data.hourly.weather_code[i]),
-          });
-        }
-      }
-      return closestToNoon;
-    }
+    // Cache the result
+    cache.set(cacheKey, response_obj);
 
-    return temperaturesToday;
+    return response_obj;
   } catch (error) {
     console.error('Error in getTemperatures:', error);
     throw error;
