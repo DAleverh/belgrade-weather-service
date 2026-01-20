@@ -379,6 +379,44 @@ export function getWebUI(): string {
             document.getElementById('latInput').focus();
         }
 
+        function getWeatherEmoji(description) {
+            const emojiMap = {
+                'Clear sky': '☀️',
+                'Fair': '🌤️',
+                'Partly cloudy': '⛅',
+                'Overcast': '☁️',
+                'Fog': '🌫️',
+                'Light rain': '🌦️',
+                'Rain': '🌧️',
+                'Heavy rain': '⛈️',
+                'Rain showers': '🌧️',
+                'Light rain showers': '🌦️',
+                'Heavy rain showers': '⛈️',
+                'Rain and thunder': '⛈️',
+                'Light rain and thunder': '⛈️',
+                'Heavy rain and thunder': '⛈️',
+                'Sleet': '🌨️',
+                'Light sleet': '🌨️',
+                'Heavy sleet': '🌨️',
+                'Sleet and thunder': '⛈️',
+                'Light sleet and thunder': '⛈️',
+                'Heavy sleet and thunder': '⛈️',
+                'Sleet showers': '🌨️',
+                'Light sleet showers': '🌨️',
+                'Heavy sleet showers': '🌨️',
+                'Snow': '❄️',
+                'Light snow': '❄️',
+                'Heavy snow': '🌨️',
+                'Snow showers': '🌨️',
+                'Light snow showers': '🌨️',
+                'Heavy snow showers': '🌨️',
+                'Snow and thunder': '⛈️',
+                'Light snow and thunder': '⛈️',
+                'Rain and snow': '🌨️',
+            };
+            return emojiMap[description] || '🌡️';
+        }
+
         function showLoading(elementId) {
             document.getElementById(elementId).innerHTML = 
                 '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
@@ -401,11 +439,12 @@ export function getWebUI(): string {
                 html += '<p class="info-text">No temperature data available for around 14:00</p>';
             } else {
                 data.temperatures.forEach(temp => {
+                    const emoji = getWeatherEmoji(temp.weatherDescription);
                     html += \`<div class="temp-item">
                         <div class="temp-date">\${temp.date}</div>
                         <div class="temp-details">
                             <span class="temperature">\${temp.temperature}°C</span>
-                            <span class="weather-desc">\${temp.weatherDescription}</span>
+                            <span class="weather-desc">\${emoji} \${temp.weatherDescription}</span>
                         </div>
                     </div>\`;
                 });
