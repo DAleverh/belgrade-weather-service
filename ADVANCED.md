@@ -175,7 +175,7 @@ export async function getLocationCoordinates(locationName: string): Promise<Loca
 ### Data Source
 
 Uses yr.no (Norwegian Meteorological Institute) weather API:
-- **Endpoint**: `https://api.weatherapi.met.no/weatherapi/1.0/complete`
+- **Endpoint**: `https://api.met.no/weatherapi/locationforecast/2.0/complete`
 - **Authentication**: None (free service, requires User-Agent header)
 - **Rate Limit**: Fair use policy
 - **Response Format**: JSON

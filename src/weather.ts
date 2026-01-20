@@ -254,7 +254,7 @@ export async function getTemperatures(
 
 /**
  * Maps yr.no weather symbol codes to descriptions
- * Reference: https://api.weatherapi.met.no/documentation
+ * Reference: https://developer.yr.no/doc/Weather/Weather%20symbols%20and%20description/
  */
 function getWeatherDescription(code: string): string {
   const weatherCodes: { [key: string]: string } = {

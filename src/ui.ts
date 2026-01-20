@@ -319,7 +319,8 @@ export function getWebUI(): string {
                        onkeypress="handleKeyPress(event, 'getTemperatureByLocation')">
                 <button onclick="getTemperatureByLocation()">Get Temperature</button>
             </div>
-            <p class="info-text">Default: Belgrade</p>
+            <p class="info-text"><span style="cursor: pointer; color: #667eea; text-decoration: underline;" onclick="loadBelgradDefault()">Default: Belgrade</span></p>
+            
             <div id="locationResults" class="results"></div>
         </div>
 
@@ -377,6 +378,13 @@ export function getWebUI(): string {
             document.getElementById('latInput').value = '44.8176';
             document.getElementById('lonInput').value = '20.4599';
             document.getElementById('latInput').focus();
+        }
+
+        function loadBelgradDefault() {
+            const input = document.getElementById('locationInput');
+            input.value = 'Belgrade';
+            switchTab('location');
+            getTemperatureByLocation();
         }
 
         function getWeatherEmoji(description) {
@@ -444,7 +452,7 @@ export function getWebUI(): string {
                         <div class="temp-date">\${temp.date}</div>
                         <div class="temp-details">
                             <span class="temperature">\${temp.temperature}°C</span>
-                            <span class="weather-desc">\${emoji} \${temp.weatherDescription}</span>
+                            <span class="weather-desc">\${emoji}</span>
                         </div>
                     </div>\`;
                 });

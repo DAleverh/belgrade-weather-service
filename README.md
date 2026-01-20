@@ -393,7 +393,7 @@ belgrade-weather-service/
 
 ### External APIs
 
-- **yr.no Weather API**: `https://api.weatherapi.met.no`
+- **yr.no Weather API**: `https://api.met.no/weatherapi/locationforecast/2.0/complete`
   - Weather data retrieval
   - No authentication required (with User-Agent header)
   - Rate limiting: Fair use policy
