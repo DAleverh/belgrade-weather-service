@@ -49,6 +49,11 @@ interface YrNoWeatherData {
             symbol_code: string;
           };
         };
+        next_6_hours?: {
+          summary: {
+            symbol_code: string;
+          };
+        };
       };
     }>;
   };
@@ -105,6 +110,21 @@ export async function getLocationCoordinates(locationName: string): Promise<Loca
     console.error('Error getting location coordinates:', error);
     throw error;
   }
+}
+
+/**
+ * Extract weather symbol code from API data (handles both hourly and 6-hourly data)
+ */
+function getWeatherSymbolCode(entry: any): string {
+  // Try next_1_hours first (hourly data)
+  if (entry.data.next_1_hours?.summary?.symbol_code) {
+    return entry.data.next_1_hours.summary.symbol_code;
+  }
+  // Fall back to next_6_hours (6-hourly data for days 3-10)
+  if (entry.data.next_6_hours?.summary?.symbol_code) {
+    return entry.data.next_6_hours.summary.symbol_code;
+  }
+  return 'unknown';
 }
 
 /**
@@ -190,7 +210,7 @@ export async function getTemperatures(
               time: timeStr,
               temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
               unit: 'Celsius',
-              weatherDescription: getWeatherDescription(entry.data.next_1_hours?.summary?.symbol_code || 'unknown'),
+              weatherDescription: getWeatherDescription(getWeatherSymbolCode(entry)),
             };
           } else {
             // Replace if this time is closer to 14:00
@@ -201,7 +221,7 @@ export async function getTemperatures(
                 time: timeStr,
                 temperature: Math.round(entry.data.instant.details.air_temperature * 10) / 10,
                 unit: 'Celsius',
-                weatherDescription: getWeatherDescription(entry.data.next_1_hours?.summary?.symbol_code || 'unknown'),
+                weatherDescription: getWeatherDescription(getWeatherSymbolCode(entry)),
               };
             }
           }
