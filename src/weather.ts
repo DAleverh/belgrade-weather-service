@@ -145,9 +145,12 @@ export async function getTemperatures(
       `Fetching weather data from yr.no for ${coordinates.name || `(${coordinates.latitude}, ${coordinates.longitude})`}...`
     );
 
-    // yr.no Compact API endpoint
-    // Using altitude=0 as default, yr.no accepts any value
-    const yrnoUrl = `https://api.weatherapi.met.no/weatherapi/1.0/complete?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&altitude=0`;
+    // yr.no Locationforecast 2.0 API endpoint
+    // Note: lat/lon parameters (not latitude/longitude), max 4 decimals precision
+    // Coordinates rounded to 4 decimals for optimal caching
+    const lat = Math.round(coordinates.latitude * 10000) / 10000;
+    const lon = Math.round(coordinates.longitude * 10000) / 10000;
+    const yrnoUrl = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`;
 
     const response = await fetch(yrnoUrl, {
       headers: {
