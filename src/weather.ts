@@ -148,9 +148,10 @@ export async function getTemperatures(
     // yr.no Locationforecast 2.0 API endpoint
     // Note: lat/lon parameters (not latitude/longitude), max 4 decimals precision
     // Coordinates rounded to 4 decimals for optimal caching
+    // Using complete endpoint instead of compact to get full 10-day forecast
     const lat = Math.round(coordinates.latitude * 10000) / 10000;
     const lon = Math.round(coordinates.longitude * 10000) / 10000;
-    const yrnoUrl = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`;
+    const yrnoUrl = `https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${lat}&lon=${lon}`;
 
     const response = await fetch(yrnoUrl, {
       headers: {
