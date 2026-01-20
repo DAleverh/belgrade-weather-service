@@ -223,7 +223,6 @@ The web UI is available at `http://localhost:3000` and includes:
 - **Auto-complete**: Click search results to load temperatures
 - **Responsive Design**: Works on desktop and mobile
 - **Caching Indicator**: Shows when data is from cache
-- **Dark Mode Support**: Adapts to system preferences
 
 ### Tabs
 
