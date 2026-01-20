@@ -332,7 +332,7 @@ export function getWebUI(): string {
                        onkeypress="handleKeyPress(event, 'getTemperatureByCoords')">
                 <button onclick="getTemperatureByCoords()">Get Temperature</button>
             </div>
-            <p class="info-text">Enter latitude and longitude (e.g., 44.8176, 20.4599 for Belgrade)</p>
+            <p class="info-text">Enter latitude and longitude (e.g., <span style="cursor: pointer; color: #667eea; text-decoration: underline;" onclick="fillBelgradCoordinates()">44.8176, 20.4599 for Belgrade</span>)</p>
             <div id="coordsResults" class="results"></div>
         </div>
 
@@ -371,6 +371,12 @@ export function getWebUI(): string {
             if (event.key === 'Enter') {
                 window[functionName]();
             }
+        }
+
+        function fillBelgradCoordinates() {
+            document.getElementById('latInput').value = '44.8176';
+            document.getElementById('lonInput').value = '20.4599';
+            document.getElementById('latInput').focus();
         }
 
         function showLoading(elementId) {
